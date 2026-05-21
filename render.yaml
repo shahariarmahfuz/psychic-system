@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: nekotunnel-central
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nekotunnel-postgres
+          property: connectionString
+      - key: APP_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: SESSION_TTL_SECONDS
+        value: "90"
+      - key: CLEANUP_INTERVAL_SECONDS
+        value: "30"
+
+databases:
+  - name: nekotunnel-postgres
+    plan: starter
