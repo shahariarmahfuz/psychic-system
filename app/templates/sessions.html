@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Sessions</h1>
+<section class="panel">
+  <table>
+    <thead><tr><th>ID</th><th>User</th><th>Slot</th><th>Status</th><th>Local Port</th><th>Started</th><th>Heartbeat</th><th>Ended</th></tr></thead>
+    <tbody>
+    {% for s in sessions %}
+      <tr>
+        <td><code>{{ s.id[:8] }}</code></td><td>{{ s.user_id[:8] }}</td><td>{{ s.slot_id[:8] }}</td><td><span class="badge {{ s.status }}">{{ s.status }}</span></td><td>{{ s.client_local_port or '' }}</td><td>{{ s.started_at }}</td><td>{{ s.last_heartbeat_at }}</td><td>{{ s.ended_at or '' }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

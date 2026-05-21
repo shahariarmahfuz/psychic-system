@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Railway Accounts</h1>
+<section class="panel">
+  <h2>Add Railway API Token</h2>
+  <form method="post" action="/admin/accounts" class="form-grid">
+    <label>Label<input name="label" placeholder="pro1" required></label>
+    <label>Workspace name or ID<input name="workspace" placeholder="My Workspace" required></label>
+    <label>Railway API token<input type="password" name="api_token" required></label>
+    <button type="submit">Add account</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Accounts</h2>
+  <table>
+    <thead><tr><th>Label</th><th>Workspace</th><th>Status</th><th>Created</th><th>Action</th></tr></thead>
+    <tbody>
+      {% for a in accounts %}
+      <tr>
+        <td>{{ a.label }}</td><td>{{ a.workspace }}</td><td><span class="badge {{ a.status }}">{{ a.status }}</span></td><td>{{ a.created_at }}</td>
+        <td><form method="post" action="/admin/accounts/{{ a.id }}/disable"><button class="danger">Disable</button></form></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

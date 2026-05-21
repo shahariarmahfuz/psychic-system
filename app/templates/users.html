@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Users</h1>
+{% if new_token %}
+<div class="success"><b>Copy this token now:</b><pre>{{ new_token }}</pre></div>
+{% endif %}
+<section class="panel">
+  <h2>Create User Token</h2>
+  <form method="post" action="/admin/users" class="form-grid">
+    <label>Name<input name="name" placeholder="Demi" required></label>
+    <label>Max active sessions<input type="number" min="1" max="10" name="max_sessions" value="1"></label>
+    <button type="submit">Create token</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>User Tokens</h2>
+  <table>
+    <thead><tr><th>Name</th><th>Prefix</th><th>Status</th><th>Max Sessions</th><th>Action</th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td>{{ u.name }}</td><td>{{ u.token_prefix }}...</td><td><span class="badge {{ u.status }}">{{ u.status }}</span></td><td>{{ u.max_sessions }}</td>
+        <td><form method="post" action="/admin/users/{{ u.id }}/disable"><button class="danger">Disable</button></form></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

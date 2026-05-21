@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="grid cards">
+  <div class="card"><b>{{ counts.accounts }}</b><span>Railway Accounts</span></div>
+  <div class="card"><b>{{ counts.users }}</b><span>Users</span></div>
+  <div class="card"><b>{{ counts.free_slots }}</b><span>Free Slots</span></div>
+  <div class="card"><b>{{ counts.busy_slots }}</b><span>Busy Slots</span></div>
+  <div class="card"><b>{{ counts.pending_slots }}</b><span>TCP Pending</span></div>
+  <div class="card"><b>{{ counts.active_sessions }}</b><span>Active Sessions</span></div>
+</div>
+
+<section class="panel">
+  <h2>Recent Logs</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Details</th></tr></thead>
+    <tbody>
+    {% for log in logs %}
+      <tr><td>{{ log.created_at }}</td><td>{{ log.actor }}</td><td>{{ log.action }}</td><td>{{ log.details or '' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

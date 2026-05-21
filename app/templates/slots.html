@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Slots</h1>
+<section class="panel warning">
+  <b>TCP note:</b> Railway TCP Proxy must be enabled on the slot service with internal port <code>8080</code>. If a created slot shows <code>tcp_pending</code>, enable TCP Proxy in Railway and press Refresh TCP.
+</section>
+<section class="panel">
+  <h2>Create Railway Slot</h2>
+  <form method="post" action="/admin/slots/create" class="form-grid">
+    <label>Railway Account
+      <select name="account_id" required>
+        {% for a in accounts %}<option value="{{ a.id }}">{{ a.label }} — {{ a.workspace }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Count<input type="number" min="1" max="5" name="count" value="1"></label>
+    <button type="submit">Create & deploy</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Add Manual Slot</h2>
+  <form method="post" action="/admin/slots/manual" class="form-grid">
+    <label>Project name<input name="project_name" required></label>
+    <label>Server addr<input name="server_addr" placeholder="mainline.proxy.rlwy.net" required></label>
+    <label>Server port<input type="number" name="server_port" required></label>
+    <label>FRP token<input type="password" name="frp_token" required></label>
+    <label>Service name<input name="service_name" value="final"></label>
+    <button type="submit">Add manual slot</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Slot Pool</h2>
+  <table>
+    <thead><tr><th>Project</th><th>Service</th><th>TCP</th><th>Status</th><th>Error</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for s in slots %}
+      <tr>
+        <td>{{ s.project_name }}</td>
+        <td>{{ s.service_name }}</td>
+        <td>{% if s.server_addr %}<code>{{ s.server_addr }}:{{ s.server_port }}</code>{% else %}-{% endif %}</td>
+        <td><span class="badge {{ s.status }}">{{ s.status }}</span></td>
+        <td class="small">{{ s.last_error or '' }}</td>
+        <td class="actions">
+          <form method="post" action="/admin/slots/{{ s.id }}/refresh"><button>Refresh TCP</button></form>
+          <form method="post" action="/admin/slots/{{ s.id }}/free"><button>Force free</button></form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
