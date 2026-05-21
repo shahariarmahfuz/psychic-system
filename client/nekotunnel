@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${1:-}" != "tcp" ] || [ -z "${2:-}" ]; then
+    echo "❌ Usage: ./nekotunnel tcp <local_port> <user_token> [api_url]"
+    echo "👉 Example: ./nekotunnel tcp 22 ntk_xxx https://your-app.onrender.com"
+    exit 1
+fi
+
+LOCAL_PORT="$2"
+USER_TOKEN="${3:-${NEKOTUNNEL_TOKEN:-}}"
+API_URL="${4:-${NEKOTUNNEL_API_URL:-}}"
+FRP_VERSION="0.57.0"
+FRPC="/tmp/frpc-${FRP_VERSION}"
+CONFIG="/tmp/neko_config.toml"
+SESSION_ID=""
+FRPC_PID=""
+HEARTBEAT_PID=""
+
+if [ -z "$USER_TOKEN" ] || [ -z "$API_URL" ]; then
+    echo "❌ Missing token or API URL."
+    echo "Use: ./nekotunnel tcp 22 USER_TOKEN https://your-app.onrender.com"
+    exit 1
+fi
+
+json_value() {
+    python3 -c "import json,sys; print(json.load(sys.stdin).get('$1',''))"
+}
+
+api_post() {
+    local path="$1"
+    local payload="$2"
+    curl -fsS -X POST "$API_URL$path" \
+      -H 'Content-Type: application/json' \
+      --data "$payload"
+}
+
+cleanup() {
+    echo -e "\n🛑 Disconnecting gracefully..."
+    if [ -n "$HEARTBEAT_PID" ]; then
+        kill "$HEARTBEAT_PID" 2>/dev/null || true
+        wait "$HEARTBEAT_PID" 2>/dev/null || true
+    fi
+    if [ -n "$FRPC_PID" ] && kill -0 "$FRPC_PID" 2>/dev/null; then
+        kill -TERM "$FRPC_PID" 2>/dev/null || true
+        wait "$FRPC_PID" 2>/dev/null || true
+    fi
+    if [ -n "$SESSION_ID" ]; then
+        api_post "/api/disconnect" "{\"token\":\"$USER_TOKEN\",\"session_id\":\"$SESSION_ID\"}" >/dev/null 2>&1 || true
+    fi
+    echo "✅ Connection closed cleanly."
+    exit 0
+}
+trap cleanup INT TERM EXIT
+
+if [ ! -x "$FRPC" ]; then
+    echo "📥 Downloading FRP client..."
+    wget -q -O /tmp/frp.tar.gz "https://github.com/fatedier/frp/releases/download/v${FRP_VERSION}/frp_${FRP_VERSION}_linux_amd64.tar.gz"
+    tar -xzf /tmp/frp.tar.gz -C /tmp
+    mv "/tmp/frp_${FRP_VERSION}_linux_amd64/frpc" "$FRPC"
+    chmod +x "$FRPC"
+fi
+
+echo "⚡ Requesting available tunnel slot..."
+RESP="$(api_post "/api/connect" "{\"token\":\"$USER_TOKEN\",\"local_port\":$LOCAL_PORT}")" || {
+    echo "❌ Could not get slot. Response from server failed."
+    exit 1
+}
+
+SESSION_ID="$(printf '%s' "$RESP" | json_value session_id)"
+SERVER_ADDR="$(printf '%s' "$RESP" | json_value server_addr)"
+SERVER_PORT="$(printf '%s' "$RESP" | json_value server_port)"
+FRP_TOKEN="$(printf '%s' "$RESP" | json_value frp_token)"
+REMOTE_PORT="$(printf '%s' "$RESP" | json_value remote_port)"
+PROXY_NAME="$(printf '%s' "$RESP" | json_value proxy_name)"
+
+if [ -z "$SESSION_ID" ] || [ -z "$SERVER_ADDR" ] || [ -z "$SERVER_PORT" ] || [ -z "$FRP_TOKEN" ]; then
+    echo "❌ Invalid API response: $RESP"
+    exit 1
+fi
+
+cat > "$CONFIG" <<CONFIG_EOF
+serverAddr = "$SERVER_ADDR"
+serverPort = $SERVER_PORT
+
+auth.method = "token"
+auth.token = "$FRP_TOKEN"
+
+loginFailExit = false
+
+[transport]
+protocol = "tcp"
+heartbeatInterval = 10
+heartbeatTimeout = 90
+tcpMux = true
+tcpMuxKeepaliveInterval = 30
+tls.enable = true
+tls.disableCustomTLSFirstByte = true
+
+[[proxies]]
+name = "$PROXY_NAME"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = $LOCAL_PORT
+remotePort = $REMOTE_PORT
+CONFIG_EOF
+
+(
+  while true; do
+    sleep 15
+    api_post "/api/heartbeat" "{\"token\":\"$USER_TOKEN\",\"session_id\":\"$SESSION_ID\"}" >/dev/null 2>&1 || true
+  done
+) &
+HEARTBEAT_PID=$!
+
+echo "✅ Slot assigned: $SERVER_ADDR:$SERVER_PORT"
+echo "🌍 Users can connect using:"
+echo "➡️  ssh username@$SERVER_ADDR -p $SERVER_PORT"
+echo "--------------------------------------------------"
+
+"$FRPC" -c "$CONFIG" &
+FRPC_PID=$!
+wait "$FRPC_PID"
